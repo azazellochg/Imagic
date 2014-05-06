@@ -1,0 +1,51 @@
+#!/bin/bash
+export IMAGIC_BATCH=1
+ 
+echo -e "Enter cycle #: "
+read cycle #iteration of MSA/MRA
+case $cycle in
+    ''|*[!0-9]*) echo "error: not a number!" & exit 1;;
+    *) : ;;
+esac
+echo -e "Enter number of classes wanted: "
+read cl_use # class number to take (should be less or equal of total number of classes)
+case $cl_use in
+    ''|*[!0-9]*) echo "error: not a number!" & exit 1;;
+    *) : ;;
+esac
+echo -e "Select .lis class file from MSA-CL:\n"
+ 
+###############Do not change!########################################################
+file=`zenity --file-selection --title="Select .lis class file from MSA-CL" --file-filter=*.lis` # MSA .lis file to analyze
+echo $file
+cl=`cat $file | grep "Number of classes wanted" | tr -d [:blank:] | cut -d ":" -f2` #total number of classes
+echo $cl
+case $cl_use in
+    ''|*[!0-9]*) echo "error: wrong file?" & exit 1;;
+    *) : ;;
+esac
+if [[ $cl_use -gt $cl ]]; then
+echo "ERROR: You cannot select more than $cl classes!"; exit 1
+fi
+input_classums=`echo $file | sed -e s/.lis//` # input classums
+output_classums="cl${cl}-${cycle}-sort-var" # output file (ALWAYS CHECK results!)
+#####################################################################################
+ 
+sed -n '/Classes sorted by intra-class variance/,/Classes sorted by REPRESENTATION QUALITY/p' \
+$file | sed -e '/intra-class/d' -e '/VAR/d' -e '/REPRESENTATION/d' -e '/^$/d' -e '/./!d' | head -n $cl_use \
+| awk -v OFS="," '$1=$1' | cut -d"," -f3 | sed ':a;N;$!ba;' >> temp.plt
+ 
+echo "! IMAGIC program: excopy -----------------------------------------------"
+echo "! "
+/home/imagic/imagic_110308_64/incore/excopy.e <<EOF 1> /dev/null
+2D_IMAGES/SECTIONS
+EXTRACT
+${input_classums}
+${output_classums}
+PLT_FILE
+temp.plt
+EOF
+echo ""
+echo -e "\nCheck your result: ${output_classums}\n"
+ 
+rm -f temp.plt
