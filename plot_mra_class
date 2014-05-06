@@ -1,0 +1,95 @@
+#!/bin/bash
+ 
+echo -n "Type folder name for images (to be created): "
+read folder
+if [ ! -d "$folder" ]; then
+mkdir $folder
+else
+echo -en "Folder already exists!" && exit 1
+fi
+echo -e "Select file for which you performed MSA:\n"
+msaed=`zenity --file-selection --title="Select .img file for which you performed MSA" --file-filter=*.img | sed -e 's/.img//g'` # MSAed file to analyze
+echo -e "Select .lis class file from MSA-CL:\n"
+file=`zenity --file-selection --title="Select .lis class file from MSA-CL" --file-filter=*.lis` # MSA .lis file to analyze
+cl=`cat $file | grep "Number of classes wanted" | tr -d [:blank:] | cut -d ":" -f2` #total number of classes
+case $cl in
+    ''|*[!0-9]*) echo -en "error: wrong .lis file?\n" & exit 1;;
+    *) : ;;
+esac
+ 
+for num in `seq 1 $cl`
+do
+/home/imagic/imagic_110308_64/msa/classort.e <<EOF > /dev/null
+EXTRACT
+$msaed
+$file
+NO
+INTERACTIVE
+$num
+cl$num
+NO
+EOF
+/home/imagic/imagic_110308_64/stand/headers.e <<EOF > /dev/null
+PLT_OUT
+INDEX/LABEL
+NUMBER_OF_INDEX
+116
+N
+cl$num
+cl$num.plt
+EOF
+ 
+arr=`cat cl$num.plt`
+declare -a array
+array=(${arr//[\n]/ })
+for k in ${array[@]}; do
+knorm=`echo $k | sed -e 's/E/e/'`
+export K=$knorm
+ 
+/usr/bin/perl <<'EOF'
+use warnings;
+use Math::Trig;
+my $degrees = $ENV{'K'}; 
+$angle=deg2rad($degrees,1);
+$result=tan($angle);
+open FILE, ">>temp" or die $!;
+print FILE "$result\n";
+close FILE;
+EOF
+ 
+export -n K
+done
+ 
+echo "set terminal png
+set output '${folder}/class${num}.png'
+set xrange [-10:10]
+set yrange [-10:10]
+unset xtics
+unset ytics
+unset key
+set noxlabel
+set noylabel
+set multiplot
+set title \"MRA angle distribution within class $num\"" >> plot_cl$num
+ 
+ 
+arr2=`cat temp`
+declare -a array2
+array2=(${arr2//[\n]/ })
+for i in ${array2[@]}; do
+echo "plot $i*x" >> plot_cl$num
+done
+ 
+echo "set nomultiplot" >> plot_cl$num
+chmod a+x plot_cl$num
+gnuplot plot_cl$num
+ 
+rm cl$num.*
+rm plot_cl$num
+rm temp
+ 
+echo -en "Class $num done.\n"
+ 
+done
+ 
+# 1 radian = 57.295779513 grad;
