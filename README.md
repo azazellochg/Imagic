@@ -19,7 +19,7 @@ The output are *.png images in previously selected folder.
 
 #####sort_var
 
-You may use the following script to sort you classums after MSA-CLASS run.
+You may use the following script to sort you classums by intra-class variance after MSA-CLASS run.
 
 The input parameters are:
 
