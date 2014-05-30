@@ -1,0 +1,103 @@
+#!/bin/bash
+###mask3d.sh  Copyright (C) 2014  Grigory Sharov
+###This program comes with ABSOLUTELY NO WARRANTY.
+###This is free software, and you are welcome to redistribute it
+###under GNU GENERAL PUBLIC LICENSE Version 3.
+
+export IMAGIC_ROOT="/home/imagic/imagic_110308_64"
+export IMAGIC_BATCH=1
+echo -e "This script will mask input imagic 3D volumes according to specified threshold and blow-up volumes up to desired pixels size if requested\n"
+echo "Please provide plt file with 3D volume names, they should be in imagic format: "
+volsfile=`zenity --title="3D volumes list" --file-selection --file-filter="Plt|*.plt"`
+echo -n "Do you want to use same threshold for all volumes? (y/n)  "
+read ans
+case $ans in
+"y")
+	echo -n "Specify threshold: "
+	read th_common
+	;;
+"n")
+	echo -e "Threshold for filtering of each volume:\n"
+	k=1
+	for i in `cat ${volsfile}`;do
+	echo -n "Volume ${i} - use threshold: "
+	read th
+	declare -a arr
+	arr[$k]=${th}
+	((k++))
+	done
+	;;
+*)
+	echo "Wrong answer!" && exit 1
+	;;
+esac
+echo -n "Parameters for lowpass block filtering: [7]  "
+read lp
+: ${lp:="7"}
+echo -n "Do you want to change pixel size of your volumes using blow-up? (y/n)  "
+read ans2
+case $ans2 in
+"y")
+	echo -n "Specify original pixel size in Angstroms: [2.5] "
+	read pix_ori
+	echo -n "Specify target pixel size in Angstroms: [1.5] "
+	read pix_target
+	echo -n "Specify target box size in pixels: [200] "
+	read box_target	
+	;;
+"n")
+	:
+	;;
+*)
+	echo "Wrong answer!" && exit 1
+	;;
+esac
+k=1
+for vol_name in `cat ${volsfile} | sed 's/.img//g'`;do
+[ -f ${vol_name}.img -a -f ${vol_name}.hed ] || ( echo "Volumes are not found or not in imagic format!" && exit 1 )
+[ "${ans}" == "y" ] && ${IMAGIC_ROOT}/threed/smooth_3d.e MODE DILATE <<EOF
+${vol_name}
+${vol_name}-dil
+6
+${th_common}
+EOF
+[ "${ans}" == "n" ] && ${IMAGIC_ROOT}/threed/smooth_3d.e MODE DILATE <<EOF
+${vol_name}
+${vol_name}-dil
+6
+${arr[$k]}
+EOF
+${IMAGIC_ROOT}/block/block3d.e <<EOF
+${vol_name}-dil
+${vol_name}-dilf
+LOWPASS
+${lp}
+EOF
+${IMAGIC_ROOT}/threed/blowup3d.e MODE ZOOM <<EOF
+${vol_name}-dilf
+${vol_name}-dilfz
+1.1
+EOF
+${IMAGIC_ROOT}/threed/inc3dmenu.e <<EOF
+TWO3DIM
+MULTIPLY
+${vol_name}-dilfz
+${vol_name}
+${vol_name}-masked
+EOF
+((k++))
+if [ "${ans2}" == "y" ];then
+${IMAGIC_ROOT}/threed/inc3dmenu.e MODE PAD <<EOF
+${vol_name}-masked
+${vol_name}-masked-box${box_target}px
+${box_target},${box_target},${box_target}
+EOF
+zoom=`echo "scale=10;${pix_ori}/${pix_target}" | bc`
+${IMAGIC_ROOT}/threed/blowup3d.e MODE ZOOM <<EOF
+${vol_name}-masked-box${box_target}px
+${vol_name}-masked-box${box_target}px-newpxsize
+${zoom}
+EOF
+fi
+rm -f ${vol_name}-dil.* ${vol_name}-dilf.* ${vol_name}-dilfz.* ${vol_name}-masked-box${box_target}px.*
+done
