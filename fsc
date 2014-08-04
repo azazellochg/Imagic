@@ -1,0 +1,92 @@
+#!/bin/bash
+export IMAGIC_BATCH=1
+IMAGIC_ROOT="/home/imagic/imagic_110308_64"
+
+echo "--------------Script for FSC determination using 1/2bit and 3-sigma curve criterions-------------"
+
+input="cla200-5alis"
+sub="sub"
+locs="1-150"
+pix="3.86"
+sym="C1"
+Haming="0.4"
+mask="0.8"
+obj_size="0.6"
+
+echo "! IMAGIC program: excopy ----------------Create ODD stack-------------------------------"
+echo "! "
+${IMAGIC_ROOT}/incore/excopy.e <<EOF
+2D
+EXTR
+${input}
+${sub}1
+INTERACTIVE
+${locs}
+ODD
+EOF
+echo "! "
+echo "! IMAGIC program: excopy ----------------Create EVEN stack-------------------------------"
+echo "! "
+${IMAGIC_ROOT}/incore/excopy.e <<EOF
+2D
+EXTR
+${input}
+${sub}2
+INTERACTIVE
+${locs}
+EVEN
+EOF
+echo "! "
+echo "! IMAGIC program: true_3d ---------------Make 3D for ODD stack-------------------------------"
+echo "! "
+${IMAGIC_ROOT}/openmpi/bin/mpirun -np 32 -x IMAGIC_BATCH  ${IMAGIC_ROOT}/threed/true_3d.e_mpi <<EOF
+BOTH
+32
+ALL
+${sym}
+YES
+${sub}1
+ANGREC_HEADER_VALUES
+${sub}1-3d
+none
+none
+YES
+${mask}
+${Haming}
+${obj_size}
+EOF
+echo "! "
+echo "! IMAGIC program: true_3d ---------------Make 3D for EVEN stack-------------------------------"
+echo "! "
+${IMAGIC_ROOT}/openmpi/bin/mpirun -np 32 -x IMAGIC_BATCH  ${IMAGIC_ROOT}/threed/true_3d.e_mpi <<EOF
+BOTH
+32
+ALL
+${sym}
+YES
+${sub}2
+ANGREC_HEADER_VALUES
+${sub}2-3d
+none
+none
+YES
+${mask}
+${Haming}
+${obj_size}
+EOF
+echo "! "
+echo "! IMAGIC program: fourier_shell -----------FSC calculation-----------------------------"
+echo "! "
+${IMAGIC_ROOT}/threed/fourier_shell.e MODE FSC <<EOF
+ONE_REFERENCE
+${sub}1-3d
+${sub}2-3d
+fsc
+NO
+3.
+${sym}
+.66
+${pix}
+NO
+EOF
+echo "The FSC curve is in file fsc.img"
