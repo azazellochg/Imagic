@@ -3,6 +3,12 @@ Imagic
 
 ###Scripts for IMAGIC-4D
 
+#####fsc
+
+Script for FSC determination using 1/2-bit and 3-sigma curve criterions. It will split particles in 2 halves (by odd/even numbers), reconstruct a 3D model and calculate FSC.
+
+---
+
 #####mask3d
 
 This script will mask input imagic 3D volumes according to specified threshold and blow-up volumes up to desired pixels size if requested
