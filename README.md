@@ -15,6 +15,12 @@ This script will mask input imagic 3D volumes according to specified threshold a
 
 ---
 
+#####mra
+
+This script will run multi-reference alignment (MRA) in IMAGIC. In old IMAGIC versions it works best if you first run separately translational and rotational alignment and then both of them together. Filtering of references and alignment precision can be adjusted inside the script.
+
+---
+
 #####plot_mra_class
 
 You may use the following script to plot MRA angle distribution for each class after MSA-CLASS run. Each angle value from each projection is depicted by line on a circle. Such plots can be used to judge if class has incomplete sampling of in-plane rotation angle.
